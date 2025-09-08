@@ -6,17 +6,20 @@
 
 ---
 
-## 遊戲預覽 (Preview)
+## Preview
 
 ![遊戲預覽](boid.gif)
 
 ---
 
-## 關於這個專案 (About the Project)
+## About the Project
+
+This is an interactive 3D Boid Simulation project. You can freely adjust the various parameters of the collective behavior through the user interface.
 
 這是一個互動式的 3D 群體行為（Boid Simulation）模擬專案。你可以透過使用者介面，自由調整群體行為的各種參數。
 
-### 主要特色 (Key Features)
+
+### Key Features
 * **即時參數調整**：自由調整群體的數量、速度、視野範圍，以及影響其行為的三大規則——**分離**、**聚集**和**對齊**。
   
   **Real-time parameter adjustment**:Freely adjust the number of boids, speed, and field of view, as well as the three rules that influence their behavior——**separation**, **cohesion** and **alignment**。
@@ -27,15 +30,15 @@
 
 ---
 
-## 如何體驗 (How to Run)
+## How to Run
 
-只需點擊以下連結，即可在瀏覽器中直接體驗：
+點擊連結或下載 html 並用任意瀏覽器開啟
 
-[點擊這裡體驗遊戲](https://jojoey-spec.github.io/gyrate-simulation/)
+[Click here to experience the game or download the HTML file and open it with any browser.](https://jojoey-spec.github.io/gyrate-simulation/)
 
 ---
 
-## 使用技術 (Technologies Used)
+## Technologies Used
 
 * **Three.js**
 * **JavaScript**
@@ -43,7 +46,7 @@
 
 ---
 
-## 貢獻者 (Contributors)
+## Contributors
 
 * [Jojoey-spec](https://github.com/jojoey-spec)
-* **Gemini AI**
+* **Gemini**
