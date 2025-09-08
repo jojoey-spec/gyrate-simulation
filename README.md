@@ -32,9 +32,7 @@ This is an interactive 3D Boid Simulation project. You can freely adjust the var
 
 ## How to Run
 
-Click here to experience the game or download the HTML file and open it with any browser.
-
-Link
+Click [here](https://jojoey-spec.github.io/gyrate-simulation/) to experience the game or download the HTML file and open it with any browser.
 
 ---
 
