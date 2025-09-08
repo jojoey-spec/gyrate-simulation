@@ -26,7 +26,7 @@
 
 只需點擊以下連結，即可在瀏覽器中直接體驗：
 
-[在這裡放入你的 GitHub Pages 網址]
+[[在這裡放入你的 GitHub Pages 網址]](https://github.com/jojoey-spec/gyrate-simulation)
 
 ---
 
