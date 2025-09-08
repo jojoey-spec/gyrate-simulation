@@ -40,5 +40,5 @@
 
 ## 貢獻者 (Contributors)
 
-* [你的 GitHub 用戶名]
+* [jojoey-spec]
 * **Gemini AI** 模型
