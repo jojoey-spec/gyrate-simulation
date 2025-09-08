@@ -8,7 +8,7 @@
 
 ## 遊戲預覽 (Preview)
 
-![遊戲預覽](https://github.com/jojoey-spec/gyrate-simulation/raw/main/boid.gif)
+![遊戲預覽](boid.gif)
 
 ---
 
