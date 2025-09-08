@@ -1,0 +1,1788 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Swarm Simulation</title>
+    <style>
+        /* Base styles for the body and canvas */
+        body { 
+            margin: 0; 
+            font-family: 'Inter', sans-serif; 
+            background-color: #aaaaaa; 
+            overflow: hidden; /* Prevent scrollbars */
+        }
+        canvas { 
+            display: block; 
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        /* Styles for the control panels */
+        .controls-panel { 
+            position: absolute; 
+            color: rgb(255, 255, 255); 
+            background: rgba(0,0,0,0.5); 
+            padding: 15px; 
+            border-radius: 12px; 
+            max-width: 300px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            z-index: 10; /* Ensure panels are above canvas */
+        }
+        #controls-top-left {
+            top: 10px;
+            left: 10px;
+        }
+        #controls-bottom-left {
+            bottom: 10px;
+            left: 10px;
+        }
+        #controls-top-right {
+            top: 10px;
+            right: 10px;
+        }
+        #controls-bottom-right {
+            bottom: 10px;
+            right: 10px;
+        }
+        .controls-panel h3, .controls-panel h4.collapsible-header {
+            margin: 0 0 10px 0;
+            padding-bottom: 5px;
+            border-bottom: 1px solid #444;
+            cursor: pointer; /* Make header clickable for collapsing */
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .controls-panel h4.collapsible-header {
+            font-size: 1em;
+            margin: 10px 0;
+            border-bottom: 1px solid #333;
+        }
+        .controls-panel h3 .toggle-icon, .controls-panel h4.collapsible-header .toggle-icon {
+            transition: transform 0.2s ease;
+        }
+        .controls-panel h3.collapsed .toggle-icon, .controls-panel h4.collapsible-header.collapsed .toggle-icon {
+            transform: rotate(-90deg); /* Rotate icon when collapsed */
+        }
+        .controls-panel label { 
+            display: flex; 
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px; 
+            font-size: 14px;
+        }
+        .controls-panel label span:not([data-lang-key]) { /* Exclude language spans from this rule */
+            min-width: 40px;
+            text-align: right;
+        }
+        
+        /* Styles for number inputs (now used for behavior parameters) */
+        input[type="number"] { 
+            width: 60px; 
+            background: #333;
+            border: 1px solid #555;
+            color: white;
+            padding: 4px;
+            border-radius: 5px;
+            margin-left: 5px;
+        }
+
+        /* Styles for range sliders (only for numBoids now) */
+        input[type="range"] {
+            width: 150px;
+            -webkit-appearance: none;
+            height: 5px;
+            background: #444;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 15px;
+            height: 15px;
+            background: #00b0ff;
+            border-radius: 50%;
+            border: 2px solid white;
+        }
+
+        /* Grouping inputs */
+        .input-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .input-group label {
+            flex-grow: 1;
+            margin-bottom: 0;
+        }
+        
+        /* Styles for buttons */
+        button {
+            background: #00b0ff;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-top: 5px;
+            font-family: 'Inter', sans-serif;
+        }
+        button:hover {
+            background: #0088cc;
+        }
+        
+        /* Horizontal rule style */
+        hr {
+            border: 0;
+            height: 1px;
+            background-image: linear-gradient(to right, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0));
+            margin: 15px 0;
+        }
+        
+        /* Styles for select dropdown */
+        select {
+            background: #333;
+            color: white;
+            border: 1px solid #555;
+            padding: 4px;
+            border-radius: 5px;
+        }
+        
+        /* Pause overlay styling */
+        #pauseOverlay {
+            position: absolute;
+            bottom: 10px; /* Position at bottom */
+            left: 10px; /* Position at left */
+            padding: 5px 10px;
+            background: rgba(0, 0, 0, 0.5); /* Slightly transparent background */
+            color: white;
+            font-size: 1.5em; /* Smaller font size */
+            border-radius: 5px;
+            pointer-events: none; /* Allows interaction with elements behind it */
+            z-index: 1000;
+            opacity: 0; /* Initially hidden */
+            transition: opacity 0.3s ease-in-out;
+            animation: none; /* No animation initially */
+        }
+        #pauseOverlay.visible {
+            opacity: 1;
+            animation: blink 1.5s linear infinite; /* Add blinking animation when visible */
+        }
+        /* Blinking animation keyframes */
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.2; }
+        }
+
+        /* Collapsible content styles */
+        .collapsible-content {
+            max-height: 500px; /* Max height when expanded */
+            overflow: hidden;
+            transition: max-height 0.3s ease-out, padding 0.3s ease-out;
+            padding-top: 5px;
+        }
+        .collapsible-content.collapsed {
+            max-height: 0;
+            padding-top: 0;
+        }
+
+        /* Tooltip styles */
+        .tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.85);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            line-height: 1.4;
+            max-width: 250px;
+            opacity: 0;
+            transition: opacity 0.4s ease-out;
+            pointer-events: none;
+            z-index: 9999;
+            visibility: hidden;
+        }
+        .tooltip.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+    </style>
+    <!-- Include the three.js library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+    <div id="controls-top-left" class="controls-panel">
+        <h3 class="collapsible-header"><span data-lang-key="swarm-settings-title"></span> <span class="toggle-icon">▼</span></h3>
+        <div class="collapsible-content">
+            <label for="numBoids"><span data-lang-key="num-swarm-units-label"></span> <span id="numBoidsValue">100</span></label>
+            <input type="range" id="numBoids" min="1" max="500" value="100" data-tooltip-key="numBoids">
+            
+            <label for="maxSpeed"><span data-lang-key="max-speed-label"></span> <span id="maxSpeedValue">2.0</span></label>
+            <input type="number" id="maxSpeed" min="0.1" max="15" step="0.1" value="3.5" data-tooltip-key="maxSpeed">
+            
+            <hr>
+            
+            <h4 class="collapsible-header"><span data-lang-key="swarm-behavior-params"></span> <span class="toggle-icon">▼</span></h4>
+            <div class="collapsible-content">
+                <label for="separationForce"><span data-lang-key="separation-force-label"></span> <span id="separationForceValue">3.00</span></label>
+                <input type="number" id="separationForce" min="0" max="5.0" step="0.05" value="3.0" data-tooltip-key="separationForce">
+                
+                <label for="alignmentForce"><span data-lang-key="alignment-force-label"></span> <span id="alignmentForceValue">0.05</span></label>
+                <input type="number" id="alignmentForce" min="0" max="0.5" step="0.01" value="0.05" data-tooltip-key="alignmentForce">
+                
+                <label for="cohesionForce"><span data-lang-key="cohesion-force-label"></span> <span id="cohesionForceValue">0.01</span></label>
+                <input type="number" id="cohesionForce" min="0" max="0.5" step="0.01" value="0.01" data-tooltip-key="cohesionForce">
+                
+                <label for="targetForce"><span data-lang-key="core-force-label"></span> <span id="targetForceValue">0.10</span></label>
+                <input type="number" id="targetForce" min="0" max="1.0" step="0.01" value="0.1" data-tooltip-key="targetForce">
+
+                <label for="wanderForce"><span data-lang-key="wander-force-label"></span> <span id="wanderForceValue">0.030</span></label>
+                <input type="number" id="wanderForce" min="0" max="0.5" step="0.001" value="0.03" data-tooltip-key="wanderForce">
+
+                <label for="goalForce"><span data-lang-key="goal-force-label"></span> <span id="goalForceValue">0.005</span></label>
+                <input type="number" id="goalForce" min="0" max="0.1" step="0.001" value="0.005" data-tooltip-key="goalForce">
+
+                <label for="boidPerceptionRadiusForTargetsInput" data-lang-key="swarm-perception-radius-label"></label>
+                <input type="number" id="boidPerceptionRadiusForTargetsInput" value="300" min="10" max="1500" step="10" data-tooltip-key="boidPerceptionRadiusForTargetsInput">
+            </div>
+
+            <hr>
+
+            <h4 class="collapsible-header"><span data-lang-key="swarm-behavior-mode-title"></span> <span class="toggle-icon">▼</span></h4>
+            <div class="collapsible-content" style="padding-left: 10px;">
+                <label>
+                    <input type="radio" name="swarmMode" value="flee">
+                    <span data-lang-key="mode-flee-core"></span>
+                </label>
+                <label>
+                    <input type="radio" name="swarmMode" value="chase" checked>
+                    <span data-lang-key="mode-chase-core"></span>
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <div id="controls-bottom-left" class="controls-panel">
+        <h3 class="collapsible-header"><span data-lang-key="boundary-settings-title"></span> <span class="toggle-icon">▼</span></h3>
+        <div class="collapsible-content">
+            <label data-lang-key="boundary-range-label"></label>
+            <div class="input-group">
+                <label for="boxMinX">X Min: </label><input type="number" id="boxMinX" value="0">
+                <label for="boxMinY">Y Min: </label><input type="number" id="boxMinY" value="0">
+                <label for="boxMinZ">Z Min: </label><input type="number" id="boxMinZ" value="0">
+            </div>
+            <div class="input-group">
+                <label for="boxMaxX">X Max: </label><input type="number" id="boxMaxX" value="1000">
+                <label for="boxMaxY">Y Max: </label><input type="number" id="boxMaxY" value="1000">
+                <label for="boxMaxZ">Z Max: </label><input type="number" id="boxMaxZ" value="1000">
+            </div>
+            <button id="updateBox" data-lang-key="update-boundary-btn"></button>
+            <hr>
+            <h4 data-lang-key="boundary-shape-title"></h4>
+            <div class="input-group" style="flex-direction: column; align-items: flex-start;">
+                <label>
+                    <input type="radio" name="boundaryShape" id="shapeRectangular" value="box" checked>
+                    <span data-lang-key="shape-rectangular"></span>
+                </label>
+                <label style="margin-top: 5px;">
+                    <input type="radio" name="boundaryShape" id="shapeSpherical" value="sphere">
+                    <span data-lang-key="shape-spherical"></span>
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <div id="controls-top-right" class="controls-panel">
+        <h3 class="collapsible-header"><span data-lang-key="core-settings-title"></span> <span class="toggle-icon">▼</span></h3>
+        <div class="collapsible-content">
+            <label for="targetQuantity"><span data-lang-key="num-cores-label"></span> <span id="targetQuantityValue">1</span></label>
+            <input type="range" id="targetQuantity" min="0" max="10" value="1" data-tooltip-key="targetQuantity">
+            
+            <label for="autoTargetSpeed" data-lang-key="core-speed-label"></label>
+            <input type="number" id="autoTargetSpeed" value="5" step="0.1" min="0" max="20" data-tooltip-key="autoTargetSpeed">
+
+            <hr>
+
+            <h4 class="collapsible-header"><span data-lang-key="core-behavior-mode-title"></span><span class="toggle-icon">▼</span></h4>
+            <div class="collapsible-content" style="padding-left: 10px;">
+                <label>
+                    <input type="radio" name="coreMode" value="chase">
+                    <span data-lang-key="mode-chase-swarm"></span>
+                </label>
+                <label>
+                    <input type="radio" name="coreMode" value="idle" checked>
+                    <span data-lang-key="mode-idle"></span>
+                </label>
+            </div>
+            
+            <hr>
+
+            <h4 class="collapsible-header"><span data-lang-key="core-behavior-params"></span><span class="toggle-icon">▼</span></h4>
+            <div class="collapsible-content">
+                <label for="chaseDurationInput" data-lang-key="chase-timeout-label"></label>
+                <input type="number" id="chaseDurationInput" value="5" min="1" max="30" step="1" data-tooltip-key="chaseDurationInput">
+
+                <label for="targetPerceptionRadiusInput" data-lang-key="core-perception-radius-label"></label>
+                <input type="number" id="targetPerceptionRadiusInput" value="500" min="10" max="1500" step="10" data-tooltip-key="targetPerceptionRadiusInput">
+
+                <label for="showChaseLineCheckbox" data-lang-key="show-chase-line-label"></label>
+                <input type="checkbox" id="showChaseLineCheckbox" checked>
+            </div>
+        </div>
+    </div>
+
+    <div id="controls-bottom-right" class="controls-panel">
+        <h3 class="collapsible-header"><span data-lang-key="other-settings-title"></span> <span class="toggle-icon">▼</span></h3>
+        <div class="collapsible-content">
+
+            <h4 class="collapsible-header"><span data-lang-key="options-settings-title"></span><span class="toggle-icon">▼</span></h4>
+            <div class="collapsible-content">
+                <label>
+                    <span data-lang-key="enable-linkage-label"></span>
+                    <input type="checkbox" id="enableLinkage" checked data-tooltip-key="enableLinkage">
+                </label>
+                <label style="margin-top: 5px;">
+                    <span data-lang-key="disable-tooltips-label"></span>
+                    <input type="checkbox" id="disableTooltips">
+                </label>
+            </div>
+            <hr>
+
+            <h4 class="collapsible-header"><span data-lang-key="language-title"></span><span class="toggle-icon">▼</span></h4>
+            <div class="collapsible-content">
+                <div class="input-group">
+                    <button id="lang-zh">中文</button>
+                    <button id="lang-en" style="margin-left: 10px;">English</button>
+                </div>
+            </div>
+            <hr>
+
+            <h4 class="collapsible-header"><span data-lang-key="camera-settings-title"></span><span class="toggle-icon">▼</span></h4>
+            <div class="collapsible-content">
+                <p style="font-size: 12px; margin-bottom: 10px; line-height: 1.4;" data-lang-key="camera-instructions"></p>
+                <label data-lang-key="current-cam-pos-label"></label>
+                <div class="input-group">
+                    <label for="camX">X: </label><input type="number" id="camX" value="0" readonly>
+                    <label for="camY">Y: </label><input type="number" id="camY" value="0" readonly>
+                    <label for="camZ">Z: </label><input type="number" id="camZ" value="0" readonly>
+                </div>
+                <button id="resetCamera" data-lang-key="reset-camera-btn"></button>
+                <h4 data-lang-key="camera-mode-title" style="margin-top: 15px;"></h4>
+                <div class="input-group" style="flex-direction: column; align-items: flex-start;">
+                    <label>
+                        <input type="radio" name="cameraMode" id="modeFollow" value="follow" checked>
+                        <span data-lang-key="mode-follow"></span>
+                    </label>
+                    <label style="margin-top: 5px;">
+                        <input type="radio" name="cameraMode" id="modeSpectator" value="spectator">
+                        <span data-lang-key="mode-spectator"></span>
+                    </label>
+                </div>
+                <button id="cycleTargetButton" style="margin-top: 10px;" data-lang-key="cycle-core-btn"></button>
+            </div>
+
+        </div>
+    </div>
+
+    <div id="pauseOverlay" data-lang-key="paused-overlay"></div>
+    <div id="tooltip" class="tooltip"></div>
+
+    <script>
+        // --- Language Translation Setup ---
+        const translations = {
+            'page-title': { 'en': '3D Swarm Simulation', 'zh-TW': '3D 群體模擬' },
+            'swarm-settings-title': { 'en': 'Swarm Settings', 'zh-TW': '群體設定' },
+            'num-swarm-units-label': { 'en': 'Number of Swarm Units:', 'zh-TW': '群體單位數量:' },
+            'max-speed-label': { 'en': 'Max Speed:', 'zh-TW': '最大速度:' },
+            'swarm-behavior-params': { 'en': 'Swarm Behavior Parameters', 'zh-TW': '群體行為參數' },
+            'separation-force-label': { 'en': 'Separation Force:', 'zh-TW': '分離力:' },
+            'alignment-force-label': { 'en': 'Alignment Force:', 'zh-TW': '對齊力:' },
+            'cohesion-force-label': { 'en': 'Cohesion Force:', 'zh-TW': '凝聚力:' },
+            'core-force-label': { 'en': 'Core Force:', 'zh-TW': '核心力:' },
+            'wander-force-label': { 'en': 'Wander Force:', 'zh-TW': '漫遊力:' },
+            'goal-force-label': { 'en': 'Goal Force:', 'zh-TW': '目標力:' },
+            'swarm-perception-radius-label': { 'en': 'Swarm Core Perception Radius:', 'zh-TW': '群體對核心的感知半徑:' },
+            'swarm-behavior-mode-title': { 'en': 'Swarm Behavior Mode', 'zh-TW': '群體行為模式' },
+            'mode-chase-core': { 'en': 'Chase Core', 'zh-TW': '追逐核心' },
+            'mode-flee-core': { 'en': 'Flee from Core', 'zh-TW': '逃離核心' },
+            'boundary-settings-title': { 'en': 'Boundary Settings', 'zh-TW': '邊界設定' },
+            'boundary-range-label': { 'en': 'Boundary Range:', 'zh-TW': '邊界範圍:' },
+            'update-boundary-btn': { 'en': 'Update Boundary', 'zh-TW': '更新邊界' },
+            'boundary-shape-title': { 'en': 'Boundary Shape', 'zh-TW': '邊界形狀' },
+            'shape-rectangular': { 'en': 'Rectangular', 'zh-TW': '矩形' },
+            'shape-spherical': { 'en': 'Spherical', 'zh-TW': '球形' },
+            'core-settings-title': { 'en': 'Core Settings', 'zh-TW': '核心設定' },
+            'num-cores-label': { 'en': 'Number of Cores:', 'zh-TW': '核心數量:' },
+            'core-speed-label': { 'en': 'Core Speed:', 'zh-TW': '核心速度:' },
+            'core-behavior-params': { 'en': 'Core Behavior Parameters', 'zh-TW': '核心行為參數' },
+            'chase-timeout-label': { 'en': 'Chase Timeout (seconds):', 'zh-TW': '追逐超時 (秒):' },
+            'core-perception-radius-label': { 'en': 'Core Perception Radius:', 'zh-TW': '核心感知半徑:' },
+            'show-chase-line-label': { 'en': 'Show Chase Line:', 'zh-TW': '顯示追逐線:' },
+            'core-behavior-mode-title': { 'en': 'Core Behavior Mode', 'zh-TW': '核心行為模式' },
+            'mode-chase-swarm': { 'en': 'Chase Swarm', 'zh-TW': '追逐群體' },
+            'mode-idle': { 'en': 'Idle', 'zh-TW': '閒置' },
+            'other-settings-title': { 'en': 'Other Settings', 'zh-TW': '其他設定' },
+            'options-settings-title': { 'en': 'Option Settings', 'zh-TW': '選項設置' },
+            'enable-linkage-label': { 'en': 'Enable Behavior Linkage', 'zh-TW': '啟用行為連動' },
+            'disable-tooltips-label': { 'en': 'Disable Tooltips', 'zh-TW': '關閉提示' },
+            'camera-settings-title': { 'en': 'Camera', 'zh-TW': '鏡頭' },
+            'camera-instructions': { 'en': '<b>Controls:</b><br>Left Drag: Rotate<br>Right Drag: Pan<br>Scroll: Zoom', 'zh-TW': '<b>操作方式:</b><br>左鍵拖曳: 旋轉<br>右鍵拖曳: 平移<br>滾輪: 縮放' },
+            'current-cam-pos-label': { 'en': 'Current Camera Position:', 'zh-TW': '目前鏡頭位置:' },
+            'reset-camera-btn': { 'en': 'Reset Camera View', 'zh-TW': '重設鏡頭視角' },
+            'camera-mode-title': { 'en': 'Camera Mode', 'zh-TW': '鏡頭模式' },
+            'mode-follow': { 'en': 'Follow Mode', 'zh-TW': '跟隨模式' },
+            'mode-spectator': { 'en': 'Spectator Mode (Free Move: WASD + QE)', 'zh-TW': '旁觀者模式 (自由移動: WASD + QE)' },
+            'cycle-core-btn': { 'en': 'Cycle Core', 'zh-TW': '切換核心' },
+            'language-title': { 'en': 'Language', 'zh-TW': '語言' },
+            'paused-overlay': { 'en': 'PAUSED', 'zh-TW': '已暫停' },
+        };
+
+        function updateLanguage(lang) {
+            document.documentElement.lang = lang; // Set language on root element for CSS and JS access
+            document.querySelectorAll('[data-lang-key]').forEach(element => {
+                const key = element.getAttribute('data-lang-key');
+                if (translations[key] && translations[key][lang]) {
+                    element.innerHTML = translations[key][lang];
+                }
+            });
+            document.title = translations['page-title'][lang];
+        }
+
+
+        // --- Adjustable Parameters ---
+
+        // Boids Simulation Parameters
+        let NUM_BOIDS = 100;
+        let MAX_SPEED = 3.5; 
+        const SEPARATION_DISTANCE = 20;
+        const ALIGNMENT_DISTANCE = 50;
+        const COHESION_DISTANCE = 50;
+        let SEPARATION_FORCE = 3.0; 
+        let ALIGNMENT_FORCE = 0.05; 
+        let COHESION_FORCE = 0.01; 
+        let TARGET_FORCE = 0.1; 
+        let WANDER_FORCE = 0.03;
+        let GOAL_FORCE = 0.005;
+        
+        // Target Interaction Flags
+        let enableTargetChasing = false; // Whether targets chase Boids
+        let enableBoidsFleeing = false; // Whether Boids flee targets
+        let linkageEnabled = true;
+
+        // Boids Visual Parameters
+        const BOID_ELLIPSOID_RADIUS = 5;
+        const BOID_ELLIPSOID_Z_SCALE = 2;
+
+        // Target Parameters
+        let TARGET_QUANTITY = 1;
+        let AUTO_TARGET_SPEED = 5;
+        const MAX_CHASE_ACCELERATION_FACTOR = 1.5;
+        const TARGET_ACCELERATION_RATE = 0.05;
+        let TARGET_PERCEPTION_RADIUS = 500;
+        let CHASE_DURATION_FRAMES = 10 * 60;
+        const CHASED_BOID_SPEED_BOOST = 0.1;
+        const DECAY_START_FRAMES = 3 * 60;
+        const DECAY_DURATION_FRAMES = 2 * 60;
+        const CAPTURE_DISTANCE = 15;
+        const TARGET_SMOOTHING_FACTOR = 0.05;
+        let showChaseLine = true;
+        let tooltipsEnabled = true;
+
+        // Boid specific target interaction parameters
+        let BOID_PERCEPTION_RADIUS_FOR_TARGETS = 300;
+
+        // Global Boundary Forces
+        const BOUNCE_FORCE_BOIDS_NORMAL = 0.1;
+        const BOUNCE_FORCE_BOIDS_FLEEING = 0.5;
+        const TARGET_BOUNDARY_FORCE = 0.1;
+
+        // Camera Parameters
+        const CAM_MOVE_SPEED_SPECTATOR = 5;
+        const CAM_MIN_RADIUS = 100;
+        let currentFollowTargetIndex = 0;
+
+        // Global Goal Parameters
+        let swarmGoal;
+        const GOAL_MOVE_SPEED = 0.5;
+
+        // --- Three.js Scene Setup ---
+        
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 3000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+        renderer.setClearColor(0xaaaaaa, 1);
+
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+        scene.add(ambientLight);
+        const pointLight = new THREE.PointLight(0xffffff, 1);
+        pointLight.position.set(1000, 1000, 1000);
+        scene.add(pointLight);
+
+        let radius;
+        let phi = Math.PI / 4;
+        let theta = Math.PI / 4;
+        let lookAtPoint = new THREE.Vector3();
+
+        const keys = {}; 
+        let isLeftMouseDown = false;
+        let isRightMouseDown = false;
+        let prevMouseX = 0;
+        let prevMouseY = 0;
+
+        let cameraMode = 'follow';
+        let isPaused = false;
+
+        const axesHelper = new THREE.AxesHelper(1000);
+        scene.add(axesHelper);
+
+        let boxMin = new THREE.Vector3(0, 0, 0); 
+        let boxMax = new THREE.Vector3(1000, 1000, 1000); 
+        let boxCenter = new THREE.Vector3().addVectors(boxMin, boxMax).multiplyScalar(0.5);
+        
+        let boxBoundary, sphereBoundary;
+        let boundaryShape = 'box';
+        let sphereRadius = 0;
+
+        // Create both boundary objects once and add them to the scene
+        const lineMaterial = new THREE.LineBasicMaterial({ color: 0x00ff00 });
+        boxBoundary = new THREE.LineSegments(new THREE.BufferGeometry(), lineMaterial);
+        scene.add(boxBoundary);
+
+        const sphereMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00, wireframe: true });
+        sphereBoundary = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 16), sphereMaterial); // Start with dummy geometry
+        scene.add(sphereBoundary);
+
+
+        let vertexLabels = [];
+        function updateVertexLabels() {
+            vertexLabels.forEach(label => scene.remove(label));
+            vertexLabels = [];
+
+            if (boundaryShape === 'box') {
+                const vertices = [
+                    new THREE.Vector3(boxMin.x, boxMin.y, boxMin.z),
+                    new THREE.Vector3(boxMax.x, boxMin.y, boxMin.z),
+                    new THREE.Vector3(boxMax.x, boxMax.y, boxMin.z),
+                    new THREE.Vector3(boxMin.x, boxMax.y, boxMin.z),
+                    new THREE.Vector3(boxMin.x, boxMin.y, boxMax.z),
+                    new THREE.Vector3(boxMax.x, boxMin.y, boxMax.z),
+                    new THREE.Vector3(boxMax.x, boxMax.y, boxMax.z),
+                    new THREE.Vector3(boxMin.x, boxMax.y, boxMax.z)
+                ];
+
+                vertices.forEach(pos => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = 128;
+                    canvas.height = 32;
+                    const ctx = canvas.getContext('2d');
+                    ctx.fillStyle = 'rgba(0,0,0,0.7)';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    ctx.fillStyle = 'white';
+                    ctx.font = '16px Arial';
+                    ctx.fillText(`(${pos.x.toFixed(0)},${pos.y.toFixed(0)},${pos.z.toFixed(0)})`, 5, 20);
+
+                    const texture = new THREE.CanvasTexture(canvas);
+                    const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
+                    const sprite = new THREE.Sprite(spriteMaterial);
+                    sprite.position.copy(pos);
+                    sprite.scale.set(50, 12.5, 1);
+                    scene.add(sprite);
+                    vertexLabels.push(sprite);
+                });
+            }
+        }
+
+        function updateBoundaryMesh() {
+            if (boundaryShape === 'box') {
+                sphereBoundary.visible = false;
+                boxBoundary.visible = true;
+                axesHelper.visible = true;
+
+                const points = [];
+                const { x: minX, y: minY, z: minZ } = boxMin;
+                const { x: maxX, y: maxY, z: maxZ } = boxMax;
+
+                // 8 corners
+                const p0 = new THREE.Vector3(minX, minY, minZ);
+                const p1 = new THREE.Vector3(maxX, minY, minZ);
+                const p2 = new THREE.Vector3(maxX, maxY, minZ);
+                const p3 = new THREE.Vector3(minX, maxY, minZ);
+                const p4 = new THREE.Vector3(minX, minY, maxZ);
+                const p5 = new THREE.Vector3(maxX, minY, maxZ);
+                const p6 = new THREE.Vector3(maxX, maxY, maxZ);
+                const p7 = new THREE.Vector3(minX, maxY, maxZ);
+
+                // 12 edges
+                points.push(p0, p1, p1, p2, p2, p3, p3, p0); // Bottom face
+                points.push(p4, p5, p5, p6, p6, p7, p7, p4); // Top face
+                points.push(p0, p4, p1, p5, p2, p6, p3, p7); // Vertical edges
+
+                // Midlines
+                const midX = (minX + maxX) / 2;
+                const midY = (minY + maxY) / 2;
+                const midZ = (minZ + maxZ) / 2;
+                
+                // Add midlines for each of the 6 faces
+                const midlines = [
+                    // Front face (Z=minZ)
+                    new THREE.Vector3(midX, minY, minZ), new THREE.Vector3(midX, maxY, minZ),
+                    new THREE.Vector3(minX, midY, minZ), new THREE.Vector3(maxX, midY, minZ),
+                    
+                    // Back face (Z=maxZ)
+                    new THREE.Vector3(midX, minY, maxZ), new THREE.Vector3(midX, maxY, maxZ),
+                    new THREE.Vector3(minX, midY, maxZ), new THREE.Vector3(maxX, midY, maxZ),
+
+                    // Top face (Y=maxY)
+                    new THREE.Vector3(midX, maxY, minZ), new THREE.Vector3(midX, maxY, maxZ),
+                    new THREE.Vector3(minX, maxY, minZ), new THREE.Vector3(maxX, maxY, minZ),
+
+                    // Bottom face (Y=minY)
+                    new THREE.Vector3(midX, minY, minZ), new THREE.Vector3(midX, minY, maxZ),
+                    new THREE.Vector3(minX, minY, minZ), new THREE.Vector3(maxX, minY, minZ),
+                    
+                    // Left face (X=minX)
+                    new THREE.Vector3(minX, midY, minZ), new THREE.Vector3(minX, midY, maxZ),
+                    new THREE.Vector3(minX, minY, minZ), new THREE.Vector3(minX, maxY, minZ),
+
+                    // Right face (X=maxX)
+                    new THREE.Vector3(maxX, midY, minZ), new THREE.Vector3(maxX, midY, maxZ),
+                    new THREE.Vector3(maxX, minY, minZ), new THREE.Vector3(maxX, maxY, minZ)
+                ];
+                points.push(...midlines);
+
+                boxBoundary.geometry.dispose();
+                boxBoundary.geometry = new THREE.BufferGeometry().setFromPoints(points);
+
+            } else { // 'sphere'
+                boxBoundary.visible = false;
+                sphereBoundary.visible = true;
+                axesHelper.visible = false;
+                
+                sphereRadius = boxMin.distanceTo(boxMax) * 0.5;
+                sphereBoundary.geometry.dispose();
+                sphereBoundary.geometry = new THREE.SphereGeometry(sphereRadius, 16, 16); // Reduced segments
+                sphereBoundary.position.copy(boxCenter);
+            }
+            
+            updateVertexLabels();
+        }
+        updateBoundaryMesh();
+
+        // --- Boids Simulation Core ---
+
+        const scaledRadius = BOID_ELLIPSOID_RADIUS / 2;
+        const boidGeometry = new THREE.SphereGeometry(scaledRadius, 16, 16); 
+        boidGeometry.applyMatrix4(new THREE.Matrix4().makeScale(1, 1, BOID_ELLIPSOID_Z_SCALE)); 
+
+        const boidMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
+        
+        let instancedMesh;
+
+        const GRID_SIZE = 50;
+        let grid = new Map();
+
+        function updateGrid() {
+            grid.clear();
+            boids.forEach((boid, index) => {
+                if (!boid.isDead) {
+                    const cellX = Math.floor(boid.position.x / GRID_SIZE);
+                    const cellY = Math.floor(boid.position.y / GRID_SIZE);
+                    const cellZ = Math.floor(boid.position.z / GRID_SIZE);
+                    const key = `${cellX},${cellY},${cellZ}`;
+                    if (!grid.has(key)) grid.set(key, []);
+                    grid.get(key).push({ boid, index });
+                }
+            });
+        }
+
+        function getNeighbors(boid, radius) {
+            const neighbors = [];
+            const cellX = Math.floor(boid.position.x / GRID_SIZE);
+            const cellY = Math.floor(boid.position.y / GRID_SIZE);
+            const cellZ = Math.floor(boid.position.z / GRID_SIZE);
+            const range = Math.ceil(radius / GRID_SIZE);
+
+            for (let dx = -range; dx <= range; dx++) {
+                for (let dy = -range; dy <= range; dy++) {
+                    for (let dz = -range; dz <= range; dz++) {
+                        const key = `${cellX + dx},${cellY + dy},${cellZ + dz}`;
+                        if (grid.has(key)) {
+                            grid.get(key).forEach(neighbor => {
+                                if (neighbor.boid !== boid && !neighbor.boid.isDead) {
+                                    neighbors.push(neighbor.boid);
+                                }
+                            });
+                        }
+                    }
+                }
+            }
+            return neighbors;
+        }
+
+        // Helper function to find the center of mass of the swarm
+        function findCenterOfMass() {
+            const activeBoids = boids.filter(b => !b.isDead);
+            if (activeBoids.length === 0) {
+                return boxCenter.clone();
+            }
+            const center = new THREE.Vector3();
+            activeBoids.forEach(boid => {
+                center.add(boid.position);
+            });
+            center.divideScalar(activeBoids.length);
+            return center;
+        }
+
+        let targets = [];
+        
+        function setupTarget() {
+            targets.forEach(t => {
+                scene.remove(t.mesh);
+                t.mesh.geometry.dispose();
+                t.mesh.material.dispose();
+                if (t.chaseLineMesh) {
+                    scene.remove(t.chaseLineMesh);
+                    t.chaseLineMesh.geometry.dispose();
+                    t.chaseLineMesh.material.dispose();
+                }
+                if (t.chasingBoidIndex !== -1 && boids[t.chasingBoidIndex]) {
+                    boids[t.chasingBoidIndex].isBeingChased = false;
+                }
+            });
+            targets = [];
+
+            if (TARGET_QUANTITY > 0) {
+                for (let i = 0; i < TARGET_QUANTITY; i++) {
+                    const position = new THREE.Vector3(
+                        Math.random() * (boxMax.x - boxMin.x) + boxMin.x,
+                        Math.random() * (boxMax.y - boxMin.y) + boxMin.y,
+                        Math.random() * (boxMax.z - boxMin.z) + boxMin.z
+                    );
+                    const velocity = new THREE.Vector3(
+                        (Math.random() - 0.5) * 2,
+                        (Math.random() - 0.5) * 2,
+                        (Math.random() - 0.5) * 2
+                    ).normalize();
+
+                    const targetGeometry = new THREE.SphereGeometry(10, 32, 32);
+                    const targetMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+                    const mesh = new THREE.Mesh(targetGeometry, targetMaterial);
+                    mesh.position.copy(position);
+                    scene.add(mesh);
+
+                    targets.push({ 
+                        position, 
+                        velocity, 
+                        acceleration: new THREE.Vector3(),
+                        mesh,
+                        chasingBoidIndex: -1,
+                        chaseTimer: 0,
+                        randomTargetPoint: null,
+                        seekDenseAreaPoint: null, // For post-chase strategy
+                        seekDenseAreaTimer: 0, // Timer for this strategy
+                        currentSpeed: AUTO_TARGET_SPEED,
+                        chaseLineMesh: null
+                    });
+                }
+                if (targets.length > 0) {
+                    lookAtPoint.copy(targets[currentFollowTargetIndex].position);
+                }
+            } else {
+                lookAtPoint.copy(boxCenter);
+            }
+
+            radius = camera.position.distanceTo(lookAtPoint);
+            updateCameraPositionAndOrientation(); 
+        }
+        
+        function regenerateAutoTarget() {
+            boids.forEach(boid => {
+                boid.isBeingChased = false;
+            });
+
+            if (targets.length === 0 && TARGET_QUANTITY > 0) {
+                setupTarget();
+                return;
+            } else if (targets.length > TARGET_QUANTITY) {
+                for (let i = TARGET_QUANTITY; i < targets.length; i++) {
+                    scene.remove(targets[i].mesh);
+                    targets[i].mesh.geometry.dispose();
+                    targets[i].mesh.material.dispose();
+                    if (targets[i].chaseLineMesh) {
+                        scene.remove(targets[i].chaseLineMesh);
+                        targets[i].chaseLineMesh.geometry.dispose();
+                        targets[i].chaseLineMesh.material.dispose();
+                    }
+                }
+                targets.length = TARGET_QUANTITY;
+            } else if (targets.length < TARGET_QUANTITY) {
+                for (let i = targets.length; i < TARGET_QUANTITY; i++) {
+                     const position = new THREE.Vector3(
+                        Math.random() * (boxMax.x - boxMin.x) + boxMin.x,
+                        Math.random() * (boxMax.y - boxMin.y) + boxMin.y,
+                        Math.random() * (boxMax.z - boxMin.z) + boxMin.z
+                    );
+                    const velocity = new THREE.Vector3(
+                        (Math.random() - 0.5) * 2,
+                        (Math.random() - 0.5) * 2,
+                        (Math.random() - 0.5) * 2
+                    ).normalize();
+
+                    const targetGeometry = new THREE.SphereGeometry(10, 32, 32);
+                    const targetMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+                    const mesh = new THREE.Mesh(targetGeometry, targetMaterial);
+                    mesh.position.copy(position);
+                    scene.add(mesh);
+                    targets.push({ 
+                        position, 
+                        velocity, 
+                        acceleration: new THREE.Vector3(),
+                        mesh,
+                        chasingBoidIndex: -1, 
+                        chaseTimer: 0,
+                        randomTargetPoint: null,
+                        seekDenseAreaPoint: null,
+                        seekDenseAreaTimer: 0,
+                        currentSpeed: AUTO_TARGET_SPEED,
+                        chaseLineMesh: null
+                    });
+                }
+            }
+
+            targets.forEach(t => {
+                t.position.set(
+                    Math.random() * (boxMax.x - boxMin.x) + boxMin.x,
+                    Math.random() * (boxMax.y - boxMin.y) + boxMin.y,
+                    Math.random() * (boxMax.z - boxMin.z) + boxMin.z
+                );
+                t.velocity.set(
+                    (Math.random() - 0.5) * 2,
+                    (Math.random() - 0.5) * 2,
+                    (Math.random() - 0.5) * 2
+                ).normalize();
+                t.mesh.position.copy(t.position);
+                if (t.chasingBoidIndex !== -1 && boids[t.chasingBoidIndex]) {
+                    boids[t.chasingBoidIndex].isBeingChased = false;
+                }
+                t.chasingBoidIndex = -1;
+                t.chaseTimer = 0;
+                t.randomTargetPoint = null;
+                t.seekDenseAreaPoint = null;
+                t.seekDenseAreaTimer = 0;
+                t.currentSpeed = AUTO_TARGET_SPEED;
+                t.acceleration.set(0,0,0);
+                if (t.chaseLineMesh) {
+                    scene.remove(t.chaseLineMesh);
+                    t.chaseLineMesh.geometry.dispose();
+                    t.chaseLineMesh.material.dispose();
+                    t.chaseLineMesh = null;
+                }
+            });
+
+            if (currentFollowTargetIndex >= targets.length) {
+                currentFollowTargetIndex = 0;
+            }
+
+            if (TARGET_QUANTITY > 0) {
+                lookAtPoint.copy(targets[currentFollowTargetIndex].position);
+            } else {
+                lookAtPoint.copy(boxCenter);
+            }
+            radius = camera.position.distanceTo(lookAtPoint);
+            updateCameraPositionAndOrientation();
+        }
+        setupTarget();
+        
+        function updateAutoTarget() {
+            if (TARGET_QUANTITY > 0) {
+                targets.forEach(t => {
+                    t.acceleration.set(0, 0, 0);
+
+                    let targetDesiredVelocity = new THREE.Vector3();
+                    const maxChaseSpeed = AUTO_TARGET_SPEED * MAX_CHASE_ACCELERATION_FACTOR;
+
+                    let potentialTargetBoid = null;
+                    let minDistanceSqToBoid = Infinity;
+
+                    if (enableTargetChasing) {
+                        boids.forEach((boid, index) => {
+                            if (!boid.isDead && !boid.isBeingChased) { 
+                                const distSq = t.position.distanceToSquared(boid.position);
+                                if (distSq < minDistanceSqToBoid && distSq < TARGET_PERCEPTION_RADIUS * TARGET_PERCEPTION_RADIUS) {
+                                    minDistanceSqToBoid = distSq;
+                                    potentialTargetBoid = { boid, index };
+                                }
+                            }
+                        });
+                    }
+                    
+                    let currentChasedBoid = (t.chasingBoidIndex !== -1 && boids[t.chasingBoidIndex] && !boids[t.chasingBoidIndex].isDead) ? boids[t.chasingBoidIndex] : null;
+
+                    if (enableTargetChasing) {
+                        if (!currentChasedBoid) {
+                             // Only find a new target if not currently repositioning after a failed chase
+                            if (t.seekDenseAreaTimer <= 0 && potentialTargetBoid) {
+                                t.chasingBoidIndex = potentialTargetBoid.index;
+                                boids[t.chasingBoidIndex].isBeingChased = true;
+                                t.chaseTimer = 0;
+                            } else if (!potentialTargetBoid) {
+                                t.chasingBoidIndex = -1;
+                            }
+                        } else {
+                            if (t.chaseTimer >= CHASE_DURATION_FRAMES) {
+                                // Timeout: Release current boid, and switch to seeking the swarm's center of mass
+                                boids[t.chasingBoidIndex].isBeingChased = false;
+                                t.chasingBoidIndex = -1;
+                                t.chaseTimer = 0;
+                                t.seekDenseAreaPoint = findCenterOfMass(); // Find and set the new goal
+                                t.seekDenseAreaTimer = 180; // Seek for 3 seconds (at 60fps)
+                            } else if (potentialTargetBoid && potentialTargetBoid.index !== t.chasingBoidIndex) {
+                                const distanceToCurrentChasedSq = t.position.distanceToSquared(currentChasedBoid.position);
+                                if (potentialTargetBoid.boid.position.distanceToSquared(t.position) < distanceToCurrentChasedSq * 0.5) {
+                                    boids[t.chasingBoidIndex].isBeingChased = false;
+                                    t.chasingBoidIndex = potentialTargetBoid.index;
+                                    boids[t.chasingBoidIndex].isBeingChased = true;
+                                    t.chaseTimer = 0;
+                                }
+                            }
+                        }
+                    } else {
+                        if (t.chasingBoidIndex !== -1 && boids[t.chasingBoidIndex]) {
+                            boids[t.chasingBoidIndex].isBeingChased = false;
+                        }
+                        t.chasingBoidIndex = -1;
+                    }
+
+                    if (t.chasingBoidIndex !== -1 && boids[t.chasingBoidIndex] && !boids[t.chasingBoidIndex].isDead) { // Is actively chasing a valid boid
+                        const chasedBoid = boids[t.chasingBoidIndex];
+                        
+                        const distanceToTarget = t.position.distanceTo(chasedBoid.position);
+                        const timeToIntercept = distanceToTarget / t.currentSpeed;
+                        const futurePosition = chasedBoid.position.clone().addScaledVector(chasedBoid.velocity, timeToIntercept);
+                        targetDesiredVelocity.copy(futurePosition).sub(t.position);
+                        
+                        t.currentSpeed = Math.min(maxChaseSpeed, t.currentSpeed + TARGET_ACCELERATION_RATE);
+
+                        const steeringForce = targetDesiredVelocity.clone().normalize().multiplyScalar(t.currentSpeed).sub(t.velocity);
+                        t.acceleration.add(steeringForce.multiplyScalar(TARGET_SMOOTHING_FACTOR));
+
+                        t.chaseTimer++;
+
+                        const distanceToChasedBoid = t.position.distanceTo(chasedBoid.position);
+                        if (distanceToChasedBoid < CAPTURE_DISTANCE) {
+                            chasedBoid.isDead = true;
+                            chasedBoid.isBeingChased = false;
+                            t.chasingBoidIndex = -1;
+                            t.chaseTimer = 0;
+                            t.currentSpeed = AUTO_TARGET_SPEED;
+                        }
+                        t.randomTargetPoint = null;
+
+                        if (showChaseLine) {
+                            if (!t.chaseLineMesh) {
+                                const lineMaterial = new THREE.LineBasicMaterial({ color: 0xff0000, transparent: true, opacity: 0.3 });
+                                const lineGeometry = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
+                                t.chaseLineMesh = new THREE.Line(lineGeometry, lineMaterial);
+                                scene.add(t.chaseLineMesh);
+                            }
+                            const positions = t.chaseLineMesh.geometry.attributes.position.array;
+                            positions[0] = t.position.x;
+                            positions[1] = t.position.y;
+                            positions[2] = t.position.z;
+                            positions[3] = chasedBoid.position.x;
+                            positions[4] = chasedBoid.position.y;
+                            positions[5] = chasedBoid.position.z;
+                            t.chaseLineMesh.geometry.attributes.position.needsUpdate = true;
+                        } else {
+                            if (t.chaseLineMesh) {
+                                scene.remove(t.chaseLineMesh);
+                                t.chaseLineMesh.geometry.dispose();
+                                t.chaseLineMesh.material.dispose();
+                                t.chaseLineMesh = null;
+                            }
+                        }
+
+                    } else { // Not chasing (idle, repositioning, or disabled)
+                         // If we need to seek the dense area after a failed chase
+                        if (t.seekDenseAreaTimer > 0 && t.seekDenseAreaPoint) {
+                            targetDesiredVelocity.copy(t.seekDenseAreaPoint).sub(t.position);
+                            t.seekDenseAreaTimer--;
+
+                            // If we are close enough or timer runs out, stop seeking
+                            if (t.position.distanceToSquared(t.seekDenseAreaPoint) < 100 * 100 || t.seekDenseAreaTimer <= 0) {
+                                t.seekDenseAreaTimer = 0;
+                                t.seekDenseAreaPoint = null;
+                            }
+                        } else { // Standard idle/random movement
+                             if (!t.randomTargetPoint || t.position.distanceTo(t.randomTargetPoint) < 50 || t.position.distanceTo(t.randomTargetPoint) > 1500) {
+                                t.randomTargetPoint = new THREE.Vector3(
+                                    Math.random() * (boxMax.x - boxMin.x) + boxMin.x,
+                                    Math.random() * (boxMax.y - boxMin.y) + boxMin.y,
+                                    Math.random() * (boxMax.z - boxMin.z) + boxMin.z
+                                );
+                            }
+                            targetDesiredVelocity.copy(t.randomTargetPoint).sub(t.position);
+                        }
+
+                        t.currentSpeed = Math.max(AUTO_TARGET_SPEED, t.currentSpeed - TARGET_ACCELERATION_RATE);
+
+                        const steeringForce = targetDesiredVelocity.clone().normalize().multiplyScalar(t.currentSpeed).sub(t.velocity);
+                        t.acceleration.add(steeringForce.multiplyScalar(TARGET_SMOOTHING_FACTOR));
+
+                        if (t.chaseLineMesh) {
+                            scene.remove(t.chaseLineMesh);
+                            t.chaseLineMesh.geometry.dispose();
+                            t.chaseLineMesh.material.dispose();
+                            t.chaseLineMesh = null;
+                        }
+                    }
+                    
+                    if (boundaryShape === 'sphere') {
+                        const distance = t.position.distanceTo(boxCenter);
+                        if (distance > sphereRadius) {
+                            const directionToCenter = boxCenter.clone().sub(t.position).normalize();
+                            const forceMagnitude = (distance - sphereRadius) * TARGET_BOUNDARY_FORCE;
+                            t.acceleration.addScaledVector(directionToCenter, forceMagnitude);
+                        }
+                    } 
+
+                    t.velocity.add(t.acceleration);
+                    t.velocity.clampLength(0, t.currentSpeed);
+
+                    t.position.add(t.velocity);
+
+                    if (boundaryShape === 'box') {
+                        if (t.position.x <= boxMin.x || t.position.x >= boxMax.x) t.velocity.x *= -1;
+                        if (t.position.y <= boxMin.y || t.position.y >= boxMax.y) t.velocity.y *= -1;
+                        if (t.position.z <= boxMin.z || t.position.z >= boxMax.z) t.velocity.z *= -1;
+                    }
+
+                    t.mesh.position.copy(t.position);
+                });
+
+            } 
+        }
+
+        const boids = [];
+        
+        function setupBoids() {
+            if (instancedMesh) {
+                scene.remove(instancedMesh);
+                instancedMesh.dispose();
+            }
+            instancedMesh = new THREE.InstancedMesh(boidGeometry, boidMaterial, NUM_BOIDS); 
+            scene.add(instancedMesh);
+            boids.length = 0;
+            
+            for (let i = 0; i < NUM_BOIDS; i++) {
+                const position = new THREE.Vector3(
+                    Math.random() * (boxMax.x - boxMin.x) + boxMin.x,
+                    Math.random() * (boxMax.y - boxMin.y) + boxMin.y,
+                    Math.random() * (boxMax.z - boxMin.z) + boxMin.z
+                );
+                const velocity = new THREE.Vector3(
+                    (Math.random() - 0.5) * 2,
+                    (Math.random() - 0.5) * 2,
+                    (Math.random() - 0.5) * 2
+                ).normalize().multiplyScalar(MAX_SPEED * Math.random());
+                boids.push({
+                    position: position,
+                    velocity: velocity,
+                    acceleration: new THREE.Vector3(),
+                    currentMaxSpeed: MAX_SPEED,
+                    chaseAccelerationTimer: 0,
+                    isDead: false,
+                    isBeingChased: false
+                });
+            }
+            document.getElementById('numBoidsValue').textContent = boids.length;
+        }
+        setupBoids();
+
+        // --- Boids Rules ---
+        const SEPARATION_DISTANCE_SQ = SEPARATION_DISTANCE * SEPARATION_DISTANCE;
+        const ALIGNMENT_DISTANCE_SQ = ALIGNMENT_DISTANCE * ALIGNMENT_DISTANCE;
+        const COHESION_DISTANCE_SQ = COHESION_DISTANCE * COHESION_DISTANCE;
+
+        function separation(boid, neighbors) {
+            const steering = new THREE.Vector3();
+            let count = 0;
+            for (let neighbor of neighbors) {
+                const d = boid.position.distanceTo(neighbor.position);
+                if (d < SEPARATION_DISTANCE) {
+                    const diff = boid.position.clone().sub(neighbor.position);
+                    diff.normalize().divideScalar(d); 
+                    steering.add(diff);
+                    count++;
+                }
+            }
+            if (count > 0) {
+                steering.divideScalar(count);
+                steering.normalize().multiplyScalar(boid.currentMaxSpeed).sub(boid.velocity);
+                boid.acceleration.add(steering.multiplyScalar(SEPARATION_FORCE));
+            }
+        }
+
+        function alignment(boid, neighbors) {
+            const avgVelocity = new THREE.Vector3();
+            let count = 0;
+            for (let neighbor of neighbors) {
+                const d = boid.position.distanceTo(neighbor.position);
+                if (d < ALIGNMENT_DISTANCE) {
+                    avgVelocity.add(neighbor.velocity);
+                    count++;
+                }
+            }
+            if (count > 0) {
+                avgVelocity.divideScalar(count);
+                avgVelocity.normalize().multiplyScalar(boid.currentMaxSpeed).sub(boid.velocity);
+                boid.acceleration.add(avgVelocity.multiplyScalar(ALIGNMENT_FORCE));
+            }
+        }
+
+        function cohesion(boid, neighbors) {
+            const centerOfMass = new THREE.Vector3();
+            let count = 0;
+            for (let neighbor of neighbors) {
+                const d = boid.position.distanceTo(neighbor.position);
+                if (d < COHESION_DISTANCE) {
+                    centerOfMass.add(neighbor.position);
+                    count++;
+                }
+            }
+            if (count > 0) {
+                centerOfMass.divideScalar(count);
+                const steering = centerOfMass.sub(boid.position);
+                steering.normalize().multiplyScalar(boid.currentMaxSpeed).sub(boid.velocity);
+                boid.acceleration.add(steering.multiplyScalar(COHESION_FORCE));
+            }
+        }
+
+        function wander(boid) {
+            const randomSteer = new THREE.Vector3(
+                (Math.random() - 0.5) * 2,
+                (Math.random() - 0.5) * 2,
+                (Math.random() - 0.5) * 2
+            ).normalize();
+            boid.acceleration.add(randomSteer.multiplyScalar(WANDER_FORCE));
+        }
+
+        function seekGoal(boid) {
+            const desired = swarmGoal.clone().sub(boid.position);
+            desired.normalize().multiplyScalar(boid.currentMaxSpeed);
+            const steering = desired.sub(boid.velocity);
+            boid.acceleration.add(steering.multiplyScalar(GOAL_FORCE));
+        }
+
+        function seekOrFleeTarget(boid, boidIndex) {
+            if (targets.length === 0) {
+                boid.currentMaxSpeed = MAX_SPEED;
+                boid.chaseAccelerationTimer = 0;
+                return;
+            }
+
+            let closestTarget = null;
+            let minDistanceSq = Infinity;
+
+            for (let i = 0; i < targets.length; i++) {
+                const targetObj = targets[i];
+                const distSq = boid.position.distanceToSquared(targetObj.position);
+                if (distSq < minDistanceSq) {
+                    minDistanceSq = distSq;
+                    closestTarget = targetObj;
+                }
+            }
+
+            if (!closestTarget) {
+                boid.currentMaxSpeed = MAX_SPEED;
+                boid.chaseAccelerationTimer = 0;
+                return;
+            } 
+            
+            const distanceToClosestTarget = boid.position.distanceTo(closestTarget.position);
+            if (distanceToClosestTarget > BOID_PERCEPTION_RADIUS_FOR_TARGETS) {
+                boid.currentMaxSpeed = MAX_SPEED;
+                boid.chaseAccelerationTimer = 0;
+                return;
+            }
+
+            const desired = closestTarget.position.clone().sub(boid.position);
+            
+            if (enableBoidsFleeing) { 
+                desired.negate();
+            }
+
+            desired.normalize().multiplyScalar(boid.currentMaxSpeed);
+            const steering = desired.sub(boid.velocity);
+            boid.acceleration.add(steering.multiplyScalar(TARGET_FORCE));
+
+            let isChasedByAnyTarget = false;
+            if (enableTargetChasing && enableBoidsFleeing) {
+                for(let i = 0; i < targets.length; i++) {
+                    if (targets[i].chasingBoidIndex === boidIndex) {
+                        isChasedByAnyTarget = true;
+                        break;
+                    }
+                }
+            }
+            
+            if (isChasedByAnyTarget) {
+                boid.chaseAccelerationTimer++;
+                if (boid.chaseAccelerationTimer < DECAY_START_FRAMES) {
+                    boid.currentMaxSpeed = MAX_SPEED + CHASED_BOID_SPEED_BOOST;
+                } else if (boid.chaseAccelerationTimer < (DECAY_START_FRAMES + DECAY_DURATION_FRAMES)) {
+                    const decayProgress = (boid.chaseAccelerationTimer - DECAY_START_FRAMES) / DECAY_DURATION_FRAMES;
+                    boid.currentMaxSpeed = THREE.MathUtils.lerp(MAX_SPEED + CHASED_BOID_SPEED_BOOST, MAX_SPEED, decayProgress);
+                } else {
+                    boid.currentMaxSpeed = MAX_SPEED;
+                }
+            } else {
+                boid.currentMaxSpeed = MAX_SPEED;
+                boid.chaseAccelerationTimer = 0;
+            }
+        }
+
+        function boundary(boid) {
+            let bounceForce = enableBoidsFleeing ? BOUNCE_FORCE_BOIDS_FLEEING : BOUNCE_FORCE_BOIDS_NORMAL;
+
+            if (boundaryShape === 'box') {
+                if (boid.position.x < boxMin.x) boid.acceleration.x += bounceForce;
+                if (boid.position.x > boxMax.x) boid.acceleration.x -= bounceForce;
+                if (boid.position.y < boxMin.y) boid.acceleration.y += bounceForce;
+                if (boid.position.y > boxMax.y) boid.acceleration.y -= bounceForce;
+                if (boid.position.z < boxMin.z) boid.acceleration.z += bounceForce; 
+                if (boid.position.z > boxMax.z) boid.acceleration.z -= bounceForce;
+            } else { // 'sphere'
+                const distance = boid.position.distanceTo(boxCenter);
+                if (distance > sphereRadius) {
+                    const directionToCenter = boxCenter.clone().sub(boid.position).normalize();
+                    const forceMagnitude = (distance - sphereRadius) * bounceForce;
+                    boid.acceleration.addScaledVector(directionToCenter, forceMagnitude);
+                }
+            }
+        }
+
+        // --- Simulation Update Loop ---
+        function updateBoids() {
+            const matrix = new THREE.Matrix4();
+            const activeBoids = [];
+            let instanceIdx = 0;
+
+            updateGrid();
+
+            boids.forEach((boid, index) => {
+                if (boid.isDead) {
+                    return;
+                }
+                const neighbors = getNeighbors(boid, Math.max(SEPARATION_DISTANCE, ALIGNMENT_DISTANCE, COHESION_DISTANCE));
+
+                separation(boid, neighbors);
+                alignment(boid, neighbors);
+                cohesion(boid, neighbors);
+                
+                if (TARGET_QUANTITY > 0) {
+                    seekOrFleeTarget(boid, index); 
+                } else {
+                    wander(boid);
+                    seekGoal(boid);
+                    boid.currentMaxSpeed = MAX_SPEED; 
+                    boid.chaseAccelerationTimer = 0; 
+                }
+                boundary(boid); 
+
+                boid.velocity.add(boid.acceleration);
+                boid.velocity.clampLength(0, boid.currentMaxSpeed);
+                boid.position.add(boid.velocity);
+
+                let orientationVector = boid.velocity.clone().normalize();
+                if (orientationVector.lengthSq() === 0) { 
+                    orientationVector.set(0, 0, 1); 
+                }
+                
+                const rotation = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), orientationVector);
+                matrix.compose(boid.position, rotation, new THREE.Vector3(1, 1, 1)); 
+                instancedMesh.setMatrixAt(instanceIdx, matrix);
+                instanceIdx++; 
+
+                boid.acceleration.set(0, 0, 0);
+                activeBoids.push(boid);
+            });
+
+            boids.length = 0; 
+            boids.push(...activeBoids); 
+            instancedMesh.count = boids.length; 
+            instancedMesh.instanceMatrix.needsUpdate = true; 
+
+            document.getElementById('numBoidsValue').textContent = boids.length;
+        }
+        
+        function setupSwarmGoal() {
+            swarmGoal = new THREE.Vector3(
+                Math.random() * (boxMax.x - boxMin.x) + boxMin.x,
+                Math.random() * (boxMax.y - boxMin.y) + boxMin.y,
+                Math.random() * (boxMax.z - boxMin.z) + boxMin.z
+            );
+        }
+
+        function updateSwarmGoal() {
+            if (!swarmGoal) setupSwarmGoal();
+
+            const randomOffset = new THREE.Vector3(
+                (Math.random() - 0.5),
+                (Math.random() - 0.5),
+                (Math.random() - 0.5)
+            ).normalize().multiplyScalar(GOAL_MOVE_SPEED);
+            
+            swarmGoal.add(randomOffset);
+            swarmGoal.clamp(boxMin, boxMax);
+        }
+
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+            updateCameraPositionAndOrientation(); 
+            
+            if (!isPaused) { 
+                if (TARGET_QUANTITY > 0) {
+                    updateAutoTarget(); 
+                } else {
+                    updateSwarmGoal();
+                }
+                updateBoids();
+            }
+            renderer.render(scene, camera);
+        }
+
+        // --- User Interaction and Controls ---
+        
+        // --- Camera Control ---
+
+        renderer.domElement.addEventListener('mousedown', (event) => {
+            switch (event.button) {
+                case 0: isLeftMouseDown = true; break;
+                case 2: isRightMouseDown = true; break;
+            }
+            prevMouseX = event.clientX;
+            prevMouseY = event.clientY;
+        });
+
+        renderer.domElement.addEventListener('mousemove', (event) => {
+            if (!isLeftMouseDown && !isRightMouseDown) return;
+
+            const deltaX = event.clientX - prevMouseX;
+            const deltaY = event.clientY - prevMouseY;
+
+            if (isLeftMouseDown) {
+                theta -= deltaX * 0.005;
+                phi -= deltaY * 0.005;
+                phi = Math.max(0.01, Math.min(Math.PI - 0.01, phi));
+            }
+
+            if (isRightMouseDown) {
+                const offset = new THREE.Vector3().subVectors(camera.position, lookAtPoint);
+                const right = new THREE.Vector3().crossVectors(camera.up, offset).normalize();
+                const up = new THREE.Vector3().crossVectors(offset, right).normalize();
+                const panSpeed = radius * 0.001; 
+                const panOffset = right.multiplyScalar(-deltaX * panSpeed).add(up.multiplyScalar(deltaY * panSpeed));
+                lookAtPoint.add(panOffset);
+                if (cameraMode === 'follow') {
+                    setCameraMode('spectator');
+                }
+            }
+
+            prevMouseX = event.clientX;
+            prevMouseY = event.clientY;
+        });
+
+        renderer.domElement.addEventListener('mouseup', () => {
+            isLeftMouseDown = false;
+            isRightMouseDown = false;
+        });
+
+        renderer.domElement.addEventListener('mouseleave', () => {
+            isLeftMouseDown = false;
+            isRightMouseDown = false;
+        });
+
+        renderer.domElement.addEventListener('contextmenu', (event) => event.preventDefault());
+
+        document.addEventListener('keydown', (event) => {
+            const key = event.key.toLowerCase();
+            if (key === 'p') {
+                isPaused = !isPaused;
+                document.getElementById('pauseOverlay').classList.toggle('visible', isPaused);
+            }
+            if (key === 't') {
+                if (cameraMode === 'follow' && targets.length > 0) {
+                    currentFollowTargetIndex = (currentFollowTargetIndex + 1) % targets.length;
+                }
+            }
+            keys[key] = true;
+        });
+        document.addEventListener('keyup', (event) => {
+            keys[event.key.toLowerCase()] = false;
+        });
+        
+        document.addEventListener('wheel', (event) => {
+            radius += event.deltaY * 0.1;
+            radius = Math.max(CAM_MIN_RADIUS, radius); 
+        });
+
+        function updateCameraInputs() {
+            document.getElementById('camX').value = camera.position.x.toFixed(2);
+            document.getElementById('camY').value = camera.position.y.toFixed(2);
+            document.getElementById('camZ').value = camera.position.z.toFixed(2);
+        }
+        
+        function updateCameraPositionAndOrientation() {
+            if (cameraMode === 'follow') {
+                const target = targets[currentFollowTargetIndex];
+                if (target) {
+                    lookAtPoint.lerp(target.position, 0.1);
+                } else {
+                    lookAtPoint.lerp(boxCenter, 0.1);
+                }
+            } 
+            else { 
+                const moveSpeed = CAM_MOVE_SPEED_SPECTATOR;
+                const forward = new THREE.Vector3();
+                camera.getWorldDirection(forward);
+                const right = new THREE.Vector3().crossVectors(camera.up, forward).normalize();
+                const worldUp = new THREE.Vector3(0, 1, 0);
+
+                let moveDirection = new THREE.Vector3();
+                if (keys['w']) moveDirection.add(forward);
+                if (keys['s']) moveDirection.sub(forward);
+                if (keys['a']) moveDirection.sub(right);
+                if (keys['d']) moveDirection.add(right);
+                if (keys['q']) moveDirection.add(worldUp);
+                if (keys['e']) moveDirection.sub(worldUp);
+                
+                if (moveDirection.lengthSq() > 0) {
+                    moveDirection.normalize().multiplyScalar(moveSpeed);
+                    camera.position.add(moveDirection);
+                    lookAtPoint.add(moveDirection);
+                }
+            }
+
+            camera.position.x = lookAtPoint.x + radius * Math.sin(phi) * Math.cos(theta);
+            camera.position.y = lookAtPoint.y + radius * Math.cos(phi);
+            camera.position.z = lookAtPoint.z + radius * Math.sin(phi) * Math.sin(theta);
+            
+            camera.lookAt(lookAtPoint);
+            updateCameraInputs();
+        };
+
+        function setCameraMode(mode) {
+            cameraMode = mode;
+            document.getElementById('modeFollow').checked = (mode === 'follow');
+            document.getElementById('modeSpectator').checked = (mode === 'spectator');
+
+            if (cameraMode === 'follow') {
+                const newLookAt = targets[currentFollowTargetIndex]?.position.clone() || boxCenter.clone();
+                const offset = new THREE.Vector3().subVectors(camera.position, newLookAt);
+                
+                radius = offset.length();
+                phi = Math.acos(offset.y / radius);
+                theta = Math.atan2(offset.z, offset.x);
+                
+                phi = Math.max(0.01, Math.min(Math.PI - 0.01, phi));
+                radius = Math.max(CAM_MIN_RADIUS, radius);
+                lookAtPoint.copy(newLookAt);
+            } 
+        }
+
+        document.getElementById('modeFollow').addEventListener('change', () => setCameraMode('follow'));
+        document.getElementById('modeSpectator').addEventListener('change', () => setCameraMode('spectator'));
+
+        document.getElementById('cycleTargetButton').addEventListener('click', () => {
+            if (targets.length > 0) {
+                currentFollowTargetIndex = (currentFollowTargetIndex + 1) % targets.length;
+                if (cameraMode !== 'follow') {
+                    lookAtPoint.copy(targets[currentFollowTargetIndex].position);
+                }
+            }
+        });
+
+        document.getElementById('resetCamera').addEventListener('click', () => {
+            const boxSize = new THREE.Vector3().subVectors(boxMax, boxMin);
+            const maxDimension = Math.max(boxSize.x, boxSize.y, boxSize.z);
+
+            lookAtPoint.copy(boxCenter);
+            radius = maxDimension * 1.5;
+            phi = Math.PI / 4;
+            theta = Math.PI / 4;
+            
+            setCameraMode('spectator');
+        });
+
+        document.getElementById('updateBox').addEventListener('click', () => {
+            boxMin.set(
+                parseFloat(document.getElementById('boxMinX').value),
+                parseFloat(document.getElementById('boxMinY').value),
+                parseFloat(document.getElementById('boxMinZ').value)
+            );
+            boxMax.set(
+                parseFloat(document.getElementById('boxMaxX').value),
+                parseFloat(document.getElementById('boxMaxY').value),
+                parseFloat(document.getElementById('boxMaxZ').value)
+            );
+
+            boxCenter.addVectors(boxMin, boxMax).multiplyScalar(0.5);
+            updateBoundaryMesh();
+        });
+
+        // =========================================================
+        // UI Event Listeners - Synchronize variables and UI display 
+        // =========================================================
+        const numBoidsInput = document.getElementById('numBoids');
+        numBoidsInput.addEventListener('input', () => {
+            NUM_BOIDS = parseInt(numBoidsInput.value);
+            document.getElementById('numBoidsValue').textContent = NUM_BOIDS;
+            setupBoids();
+        });
+        document.getElementById('maxSpeed').addEventListener('input', (e) => {
+            MAX_SPEED = parseFloat(e.target.value);
+            document.getElementById('maxSpeedValue').textContent = MAX_SPEED.toFixed(1);
+        });
+        document.getElementById('separationForce').addEventListener('input', (e) => {
+            SEPARATION_FORCE = parseFloat(e.target.value);
+            document.getElementById('separationForceValue').textContent = SEPARATION_FORCE.toFixed(2);
+        });
+        document.getElementById('alignmentForce').addEventListener('input', (e) => {
+            ALIGNMENT_FORCE = parseFloat(e.target.value);
+            document.getElementById('alignmentForceValue').textContent = ALIGNMENT_FORCE.toFixed(2);
+        });
+        document.getElementById('cohesionForce').addEventListener('input', (e) => {
+            COHESION_FORCE = parseFloat(e.target.value);
+            document.getElementById('cohesionForceValue').textContent = COHESION_FORCE.toFixed(2);
+        });
+        document.getElementById('targetForce').addEventListener('input', (e) => {
+            TARGET_FORCE = parseFloat(e.target.value);
+            document.getElementById('targetForceValue').textContent = TARGET_FORCE.toFixed(2);
+        });
+        document.getElementById('wanderForce').addEventListener('input', (e) => {
+            WANDER_FORCE = parseFloat(e.target.value);
+            document.getElementById('wanderForceValue').textContent = WANDER_FORCE.toFixed(3);
+        });
+        document.getElementById('goalForce').addEventListener('input', (e) => {
+            GOAL_FORCE = parseFloat(e.target.value);
+            document.getElementById('goalForceValue').textContent = GOAL_FORCE.toFixed(3);
+        });
+        document.getElementById('boidPerceptionRadiusForTargetsInput').addEventListener('input', (e) => {
+            BOID_PERCEPTION_RADIUS_FOR_TARGETS = parseFloat(e.target.value);
+        });
+        document.getElementById('targetQuantity').addEventListener('input', (e) => {
+            TARGET_QUANTITY = parseInt(e.target.value);
+            document.getElementById('targetQuantityValue').textContent = TARGET_QUANTITY;
+            regenerateAutoTarget();
+        });
+        document.getElementById('autoTargetSpeed').addEventListener('input', (e) => {
+            AUTO_TARGET_SPEED = parseFloat(e.target.value);
+            targets.forEach(t => {
+                if (t.chasingBoidIndex === -1 || !enableTargetChasing) {
+                    t.currentSpeed = AUTO_TARGET_SPEED;
+                }
+            });
+        });
+        document.getElementById('chaseDurationInput').addEventListener('input', (e) => {
+            CHASE_DURATION_FRAMES = parseFloat(e.target.value) * 60;
+        });
+        document.getElementById('targetPerceptionRadiusInput').addEventListener('input', (e) => {
+            TARGET_PERCEPTION_RADIUS = parseFloat(e.target.value);
+        });
+        document.getElementById('showChaseLineCheckbox').addEventListener('change', (e) => {
+            showChaseLine = e.target.checked;
+        });
+
+        document.querySelectorAll('input[name="swarmMode"]').forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                enableBoidsFleeing = (e.target.value === 'flee');
+                if (linkageEnabled) {
+                    if (enableBoidsFleeing) { // Swarm is fleeing
+                        document.querySelector('input[name="coreMode"][value="chase"]').checked = true;
+                        enableTargetChasing = true;
+                    } else { // Swarm is chasing
+                        document.querySelector('input[name="coreMode"][value="idle"]').checked = true;
+                        enableTargetChasing = false;
+                    }
+                }
+            });
+        });
+
+        document.querySelectorAll('input[name="coreMode"]').forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                enableTargetChasing = (e.target.value === 'chase');
+                if (linkageEnabled) {
+                    if (enableTargetChasing) { // Core is chasing
+                        document.querySelector('input[name="swarmMode"][value="flee"]').checked = true;
+                        enableBoidsFleeing = true;
+                    } else { // Core is idle
+                        document.querySelector('input[name="swarmMode"][value="chase"]').checked = true;
+                        enableBoidsFleeing = false;
+                    }
+                }
+            });
+        });
+        
+        document.getElementById('enableLinkage').addEventListener('change', (e) => {
+            linkageEnabled = e.target.checked;
+        });
+
+        document.getElementById('disableTooltips').addEventListener('change', (e) => {
+            tooltipsEnabled = !e.target.checked;
+            if (!tooltipsEnabled) {
+                document.getElementById('tooltip').classList.remove('visible');
+            }
+        });
+
+
+        document.querySelectorAll('input[name="boundaryShape"]').forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                boundaryShape = e.target.value;
+                updateBoundaryMesh();
+                setupBoids();
+                regenerateAutoTarget();
+            });
+        });
+
+        // Language Buttons
+        document.getElementById('lang-zh').addEventListener('click', () => updateLanguage('zh-TW'));
+        document.getElementById('lang-en').addEventListener('click', () => updateLanguage('en'));
+
+        // --- Tooltip Feature ---
+        const tooltipTranslations = {
+            'numBoids': { 'en': 'Controls the total number of individual units in the swarm.', 'zh-TW': '控制群體中個體單位的總數。' },
+            'maxSpeed': { 'en': 'Sets the maximum speed at which swarm units can travel.', 'zh-TW': '設定群體單位可以移動的最大速度。' },
+            'separationForce': { 'en': 'How strongly a unit tries to avoid crowding its neighbors.', 'zh-TW': '單位試圖避免與鄰居過於擁擠的強度。' },
+            'alignmentForce': { 'en': 'How strongly a unit tries to match the direction of its neighbors.', 'zh-TW': '單位試圖與其鄰居方向保持一致的強度。' },
+            'cohesionForce': { 'en': 'How strongly a unit is attracted to the center of its local group.', 'zh-TW': '單位被其局部群體中心吸引的強度。' },
+            'targetForce': { 'en': 'How strongly the swarm is attracted to (or repelled from) the core.', 'zh-TW': '群體被核心吸引（或排斥）的強度。' },
+            'wanderForce': { 'en': 'Adds a slight random steering to each unit when no cores are present, creating a more natural, less uniform movement.', 'zh-TW': '當沒有核心時，為每個單位增加輕微的隨機轉向力，創造更自然、不單調的移動方式。' },
+            'goalForce': { 'en': 'How strongly the swarm is drawn to a common, invisible goal when no cores are present. Creates migratory behavior.', 'zh-TW': '當沒有核心時，群體被一個共同的、看不見的目標吸引的強度。用於創造遷徙行為。' },
+            'boidPerceptionRadiusForTargetsInput': { 'en': 'The distance at which a swarm unit can "see" a core to react to it.', 'zh-TW': '群體單位能「看見」核心並對其作出反應的距離。' },
+            'targetQuantity': { 'en': 'The total number of cores in the simulation.', 'zh-TW': '模擬中核心的總數。' },
+            'autoTargetSpeed': { 'en': 'The base speed of the cores when they are not chasing.', 'zh-TW': '核心在非追逐狀態下的基礎移動速度。' },
+            'chaseDurationInput': { 'en': 'The maximum time a core will chase a single swarm unit before giving up.', 'zh-TW': '核心在放棄前追逐單一群體單位的最長時間。' },
+            'targetPerceptionRadiusInput': { 'en': 'The distance at which a core can "see" swarm units to begin a chase.', 'zh-TW': '核心能「看見」群體單位並開始追逐的距離。' },
+            'enableLinkage': { 'en': 'Links swarm and core behaviors. If swarm flees, core chases, and vice-versa.', 'zh-TW': '連動群體與核心的行為。若群體逃跑，核心則追逐，反之亦然。' }
+        };
+
+        function setupTooltips() {
+            const tooltipElement = document.getElementById('tooltip');
+            if (!tooltipElement) return;
+            let fadeOutTimeout;
+
+            document.querySelectorAll('[data-tooltip-key]').forEach(el => {
+                el.addEventListener('mouseenter', (event) => {
+                    if (!tooltipsEnabled) return;
+
+                    clearTimeout(fadeOutTimeout);
+
+                    const key = el.getAttribute('data-tooltip-key');
+                    const lang = document.documentElement.lang || 'zh-TW';
+                    const text = tooltipTranslations[key]?.[lang];
+
+                    if (text) {
+                        tooltipElement.innerHTML = text;
+                        const rect = event.target.getBoundingClientRect();
+                        tooltipElement.style.left = `${rect.left + window.scrollX}px`;
+                        tooltipElement.style.top = `${rect.bottom + 8 + window.scrollY}px`;
+                        tooltipElement.classList.add('visible');
+
+                        fadeOutTimeout = setTimeout(() => {
+                            tooltipElement.classList.remove('visible');
+                        }, 4000); // Keep tooltip for 4 seconds
+                    }
+                });
+
+                el.addEventListener('mouseleave', () => {
+                    clearTimeout(fadeOutTimeout);
+                    fadeOutTimeout = setTimeout(() => {
+                        tooltipElement.classList.remove('visible');
+                    }, 300); // Fade out shortly after mouse leaves
+                });
+            });
+        }
+
+
+        // --- Init and Load ---
+        window.onload = function () {
+            // Synchronize UI elements with variables
+            linkageEnabled = document.getElementById('enableLinkage').checked;
+            tooltipsEnabled = !document.getElementById('disableTooltips').checked;
+            enableTargetChasing = (document.querySelector('input[name="coreMode"]:checked').value === 'chase');
+            enableBoidsFleeing = (document.querySelector('input[name="swarmMode"]:checked').value === 'flee');
+            showChaseLine = document.getElementById('showChaseLineCheckbox').checked;
+            NUM_BOIDS = parseInt(document.getElementById('numBoids').value);
+            MAX_SPEED = parseFloat(document.getElementById('maxSpeed').value);
+            SEPARATION_FORCE = parseFloat(document.getElementById('separationForce').value);
+            ALIGNMENT_FORCE = parseFloat(document.getElementById('alignmentForce').value);
+            COHESION_FORCE = parseFloat(document.getElementById('cohesionForce').value);
+            TARGET_FORCE = parseFloat(document.getElementById('targetForce').value);
+            WANDER_FORCE = parseFloat(document.getElementById('wanderForce').value);
+            GOAL_FORCE = parseFloat(document.getElementById('goalForce').value);
+            BOID_PERCEPTION_RADIUS_FOR_TARGETS = parseFloat(document.getElementById('boidPerceptionRadiusForTargetsInput').value);
+            TARGET_QUANTITY = parseInt(document.getElementById('targetQuantity').value);
+            AUTO_TARGET_SPEED = parseFloat(document.getElementById('autoTargetSpeed').value);
+            CHASE_DURATION_FRAMES = parseFloat(document.getElementById('chaseDurationInput').value) * 60;
+            TARGET_PERCEPTION_RADIUS = parseFloat(document.getElementById('targetPerceptionRadiusInput').value);
+
+            // Update UI display values
+            document.getElementById('numBoidsValue').textContent = NUM_BOIDS;
+            document.getElementById('maxSpeedValue').textContent = MAX_SPEED.toFixed(1);
+            document.getElementById('separationForceValue').textContent = SEPARATION_FORCE.toFixed(2);
+            document.getElementById('alignmentForceValue').textContent = ALIGNMENT_FORCE.toFixed(2);
+            document.getElementById('cohesionForceValue').textContent = COHESION_FORCE.toFixed(2);
+            document.getElementById('targetForceValue').textContent = TARGET_FORCE.toFixed(2);
+            document.getElementById('wanderForceValue').textContent = WANDER_FORCE.toFixed(3);
+            document.getElementById('goalForceValue').textContent = GOAL_FORCE.toFixed(3);
+            document.getElementById('targetQuantityValue').textContent = TARGET_QUANTITY;
+
+            boundaryShape = document.querySelector('input[name="boundaryShape"]:checked').value;
+            updateBoundaryMesh();
+            setupSwarmGoal();
+
+            const initialLookAt = targets[0]?.position || boxCenter;
+            camera.position.set(initialLookAt.x + 500, initialLookAt.y + 500, initialLookAt.z + 500); 
+            radius = camera.position.distanceTo(initialLookAt);
+            lookAtPoint.copy(initialLookAt);
+            
+            updateLanguage('zh-TW'); // Set initial language
+            setupTooltips(); // Initialize the tooltip functionality
+            updateCameraPositionAndOrientation();
+            animate();
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Collapsible Panel Logic
+        document.querySelectorAll('.collapsible-header').forEach(header => {
+            header.addEventListener('click', () => {
+                const content = header.nextElementSibling;
+                const toggleIcon = header.querySelector('.toggle-icon');
+                header.classList.toggle('collapsed');
+                content.classList.toggle('collapsed');
+
+                if (content.classList.contains('collapsed')) {
+                    content.style.maxHeight = '0';
+                } else {
+                    // Set max-height to its scroll height to allow for CSS transition
+                    content.style.maxHeight = content.scrollHeight + "px"; 
+                }
+            });
+        });
+    </script>
+</body>
+</html>
+```
+
